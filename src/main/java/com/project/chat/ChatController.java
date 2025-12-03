@@ -8,8 +8,8 @@ import org.springframework.stereotype.Controller;
 public class ChatController {
     @MessageMapping("/send")
     @SendTo("/topic/chat")
-    public String send(ChatMessageDTO message) {
+    public ChatMessageDTO send(ChatMessageDTO message) {
         System.out.println("Received: " + message.getContent());
-        return message.getSender() + ": " + message.getContent();
+        return message;
     }
 }

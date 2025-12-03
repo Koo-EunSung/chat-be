@@ -32,7 +32,7 @@ public class WebSocketChatTests {
     private MessageConverter messageConverter; // Spring 컨텍스트에서 MessageConverter를 주입받음
 
     private String url;
-    private BlockingQueue<String> blockingQueue;
+    private BlockingQueue<ChatMessageDTO> blockingQueue;
 
     @BeforeEach
     void setUp() {
@@ -53,33 +53,39 @@ public class WebSocketChatTests {
         assertThat(session).isNotNull();
 
         // 3. 메시지 구독
-        session.subscribe("/topic/chat", new DefaultStompFrameHandler());
+        session.subscribe("/topic/chat", new DefaultStompFrameHandler(new ChatMessageDTO(), blockingQueue));
 
         // 4. 메시지 발행
         ChatMessageDTO sentMessage = new ChatMessageDTO("Test User1", "Hello, STOMP");
         session.send("/app/send", sentMessage);
 
         // 5. 응답 수신
-        String receivePayload = blockingQueue.poll(3, TimeUnit.SECONDS);
+        ChatMessageDTO response = blockingQueue.poll(3, TimeUnit.SECONDS);
 
         // 6. 검증
-        assertThat(receivePayload).isNotNull();
-        assertThat(receivePayload).contains(sentMessage.getSender());
-        assertThat(receivePayload).contains(sentMessage.getContent());
+        assertThat(response).usingRecursiveComparison().isEqualTo(sentMessage);
 
         session.disconnect();
     }
 
-    private class DefaultStompFrameHandler implements StompFrameHandler {
+    public class DefaultStompFrameHandler<T> implements StompFrameHandler {
+        private final T response;
+        private final BlockingQueue<T> responses;
+
+        public DefaultStompFrameHandler(final T response, final BlockingQueue<T> responses) {
+            this.response = response;
+            this.responses = responses;
+        }
+
         @Override
-        public Type getPayloadType(StompHeaders headers) {
-            return String.class;
+        public Type getPayloadType(final StompHeaders headers) {
+            return response.getClass();
         }
 
 
         @Override
-        public void handleFrame(StompHeaders headers, @Nullable Object payload) {
-            blockingQueue.add((String) payload);
+        public void handleFrame(final StompHeaders headers, final Object payload) {
+            responses.offer((T) payload);
         }
     }
 }
