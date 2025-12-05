@@ -1,6 +1,6 @@
 package com.project.chat;
 
-import org.jspecify.annotations.Nullable;
+import com.project.chat.dto.ChatMessageDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
