@@ -50,7 +50,11 @@ public class RedisPubSubIntegrationTest {
         redisPublisher.publish(channelTopic, message);
 
         verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(eq("/topic/chat"), any(ChatMessageDTO.class));
+                .convertAndSend(
+                        (String) eq("/topic/chat"),
+                        (Object) argThat(msg -> msg instanceof ChatMessageDTO &&
+                                ((ChatMessageDTO) msg).getSender().equals(USER) &&
+                                ((ChatMessageDTO) msg).getContent().equals(CONTENT)));
     }
 
     @Autowired
