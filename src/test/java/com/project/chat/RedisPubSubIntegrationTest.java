@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -50,5 +51,25 @@ public class RedisPubSubIntegrationTest {
 
         verify(messagingTemplate, timeout(5000).times(1))
                 .convertAndSend(eq("/topic/chat"), any(ChatMessageDTO.class));
+    }
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @DisplayName("Subscriber가 Redis 채널 메시지를 수신하면 WebSocket으로 전파한다.")
+    @Test
+    void redisSub() {
+        String user = "User";
+        String content = "Hello";
+        ChatMessageDTO messageDTO = new ChatMessageDTO(user, content);
+
+        redisTemplate.convertAndSend(channelTopic.getTopic(), messageDTO);
+
+        verify(messagingTemplate, timeout(5000).times(1))
+                .convertAndSend(
+                        (String) eq("/topic/chat"),
+                        (Object) argThat(message -> message instanceof ChatMessageDTO &&
+                                ((ChatMessageDTO) message).getSender().equals(user) &&
+                                ((ChatMessageDTO) message).getContent().equals(content)));
     }
 }
