@@ -1,10 +1,10 @@
 package com.project.chat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.chat.dto.ChatMessageDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
