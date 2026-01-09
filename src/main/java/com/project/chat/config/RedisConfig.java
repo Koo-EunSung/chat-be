@@ -34,7 +34,9 @@ public class RedisConfig {
     @Bean
     public MessageListenerAdapter listenerAdapter(RedisSubscriber subscriber) {
         // onMessage 라는 메소드를 가진 RedisSubscriber를 리스너로 등록
-        return new MessageListenerAdapter(subscriber, "onMessage");
+        MessageListenerAdapter adapter = new MessageListenerAdapter(subscriber, "onMessage");
+        adapter.setSerializer(new Jackson2JsonRedisSerializer<>(ChatMessageEvent.class)); // redisTemplate과 동일한 serializer 사용
+        return adapter;
     }
 
     /**
