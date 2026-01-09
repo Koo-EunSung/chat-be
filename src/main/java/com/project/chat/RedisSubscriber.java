@@ -24,7 +24,7 @@ public class RedisSubscriber {
                     event.getContent(),
                     event.getSentAt()
             );
-            messagingTemplate.convertAndSend("/topic/chat", response);
+            messagingTemplate.convertAndSend("/sub/chat/room/" + event.getRoomId(), response);
         } catch (Exception e) {
             System.out.println("Exception: " + e.getMessage());
         }

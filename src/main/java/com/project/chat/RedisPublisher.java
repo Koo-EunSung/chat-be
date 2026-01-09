@@ -14,7 +14,7 @@ import java.time.Instant;
 public class RedisPublisher {
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public void publish(String topic, ChatMessageSendRequest message) {
+    public void publish(String roomId, ChatMessageSendRequest message) {
         ChatMessageEvent event = new ChatMessageEvent(
                 TsidCreator.getTsid(),
                 message.getRoomId(),
@@ -23,6 +23,6 @@ public class RedisPublisher {
                 Instant.now()
         );
 
-        redisTemplate.convertAndSend(topic, event);
+        redisTemplate.convertAndSend("chat/room/" + roomId, event);
     }
 }
