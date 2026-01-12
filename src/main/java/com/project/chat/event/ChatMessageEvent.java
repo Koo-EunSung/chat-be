@@ -1,6 +1,5 @@
 package com.project.chat.event;
 
-import com.github.f4b6a3.tsid.Tsid;
 import com.github.f4b6a3.tsid.TsidCreator;
 import com.project.chat.dto.ChatMessageSendRequest;
 import lombok.AllArgsConstructor;
@@ -16,7 +15,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatMessageEvent {
-    private Tsid id;
+    private String id;
     private String roomId;
     private String sender;
     private String content;
@@ -24,7 +23,7 @@ public class ChatMessageEvent {
 
     public static ChatMessageEvent from(ChatMessageSendRequest request) {
         return new ChatMessageEvent(
-                TsidCreator.getTsid(),
+                TsidCreator.getTsid().toString(),
                 request.getRoomId(),
                 request.getSender(),
                 request.getContent(),
