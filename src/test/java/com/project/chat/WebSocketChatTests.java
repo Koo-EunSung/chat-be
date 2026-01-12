@@ -1,6 +1,7 @@
 package com.project.chat;
 
-import com.project.chat.dto.ChatMessageDTO;
+import com.project.chat.dto.ChatMessageResponse;
+import com.project.chat.dto.ChatMessageSendRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -32,7 +33,7 @@ public class WebSocketChatTests {
     private MessageConverter messageConverter; // Spring 컨텍스트에서 MessageConverter를 주입받음
 
     private String url;
-    private BlockingQueue<ChatMessageDTO> blockingQueue;
+    private BlockingQueue<ChatMessageResponse> blockingQueue;
 
     @BeforeEach
     void setUp() {
@@ -49,21 +50,26 @@ public class WebSocketChatTests {
         stompClient.setMessageConverter(messageConverter);
 
         // 2. STOMP 서버에 연결
-        StompSession session = stompClient.connectAsync(url, new StompSessionHandlerAdapter() {}).get(1, TimeUnit.SECONDS);
+        StompSession session = stompClient.connectAsync(url, new StompSessionHandlerAdapter() {
+        }).get(1, TimeUnit.SECONDS);
         assertThat(session).isNotNull();
 
         // 3. 메시지 구독
-        session.subscribe("/topic/chat", new DefaultStompFrameHandler(new ChatMessageDTO(), blockingQueue));
+        session.subscribe("/sub/chat/room/1", new DefaultStompFrameHandler(new ChatMessageResponse(), blockingQueue));
 
         // 4. 메시지 발행
-        ChatMessageDTO sentMessage = new ChatMessageDTO("Test User1", "Hello, STOMP");
-        session.send("/app/send", sentMessage);
+        ChatMessageSendRequest sentMessage = new ChatMessageSendRequest("1", "Test User1", "Hello, STOMP");
+        session.send("/pub/chat/room/1", sentMessage);
 
         // 5. 응답 수신
-        ChatMessageDTO response = blockingQueue.poll(3, TimeUnit.SECONDS);
+        ChatMessageResponse response = blockingQueue.poll(3, TimeUnit.SECONDS);
 
         // 6. 검증
-        assertThat(response).usingRecursiveComparison().isEqualTo(sentMessage);
+        // assertThat(response).usingRecursiveComparison().isEqualTo(sentMessage);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getSender()).isEqualTo(sentMessage.getSender());
+        assertThat(response.getContent()).isEqualTo(sentMessage.getContent());
 
         session.disconnect();
     }
