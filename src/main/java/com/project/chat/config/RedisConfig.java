@@ -1,5 +1,8 @@
 package com.project.chat.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.project.chat.RedisSubscriber;
 import com.project.chat.event.ChatMessageEvent;
 import org.springframework.context.annotation.Bean;
@@ -35,7 +38,12 @@ public class RedisConfig {
     public MessageListenerAdapter listenerAdapter(RedisSubscriber subscriber) {
         // onMessage 라는 메소드를 가진 RedisSubscriber를 리스너로 등록
         MessageListenerAdapter adapter = new MessageListenerAdapter(subscriber, "onMessage");
-        adapter.setSerializer(new Jackson2JsonRedisSerializer<>(ChatMessageEvent.class)); // redisTemplate과 동일한 serializer 사용
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        adapter.setSerializer(new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessageEvent.class)); // redisTemplate과 동일한 serializer 사용
         return adapter;
     }
 
@@ -47,7 +55,13 @@ public class RedisConfig {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(connectionFactory);
         redisTemplate.setKeySerializer(new StringRedisSerializer());
-        redisTemplate.setValueSerializer(new Jackson2JsonRedisSerializer<>(ChatMessageEvent.class));
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        Jackson2JsonRedisSerializer<ChatMessageEvent> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessageEvent.class);
+        redisTemplate.setValueSerializer(serializer);
         return redisTemplate;
     }
 }
