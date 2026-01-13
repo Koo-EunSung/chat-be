@@ -98,4 +98,26 @@ public class RedisPubSubIntegrationTest {
                                 ((ChatMessageResponse) message).getSentAt().equals(SENT_AT))
                 );
     }
+
+    @DisplayName("서로 다른 방 메시지가 각각 올바른 목적지로 전파된다")
+    @Test
+    void multiRoomMultiMessagePublish() {
+        String ROOM_A = "A";
+        String ROOM_B = "B";
+
+        redisPublisher.publish(ROOM_A, new ChatMessageSendRequest(ROOM_A, "userA", "msg1"));
+        redisPublisher.publish(ROOM_B, new ChatMessageSendRequest(ROOM_B, "userB", "msg2"));
+
+        verify(messagingTemplate, timeout(5000).times(1))
+                .convertAndSend(
+                        eq("/sub/chat/room/" + ROOM_A),
+                        (Object) any()
+                );
+
+        verify(messagingTemplate, timeout(5000).times(1))
+                .convertAndSend(
+                        eq("/sub/chat/room/" + ROOM_B),
+                        (Object) any()
+                );
+    }
 }
