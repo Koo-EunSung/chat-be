@@ -94,4 +94,25 @@ public class WebSocketChatTests {
             responses.offer((T) payload);
         }
     }
+
+    @DisplayName("서로 다른 방의 구독자는 메시지를 받지 않는다")
+    @Test
+    void roomIsolation() throws Exception {
+        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        stompClient.setMessageConverter(messageConverter);
+
+        StompSession session = stompClient.connectAsync(url, new StompSessionHandlerAdapter() {
+        }).get(1, TimeUnit.SECONDS);
+
+        BlockingQueue<ChatMessageResponse> room1Queue = new LinkedBlockingQueue<>();
+        BlockingQueue<ChatMessageResponse> room2Queue = new LinkedBlockingQueue<>();
+
+        session.subscribe("/sub/chat/room/1", new DefaultStompFrameHandler(new ChatMessageResponse(), room1Queue));
+        session.subscribe("/sub/chat/room/2", new DefaultStompFrameHandler(new ChatMessageResponse(), room2Queue));
+
+        session.send("/pub/chat/room/1", new ChatMessageSendRequest("1", "user", "hello"));
+
+        assertThat(room1Queue.poll(3, TimeUnit.SECONDS)).isNotNull();
+        assertThat(room2Queue.poll(1, TimeUnit.SECONDS)).isNull();
+    }
 }
