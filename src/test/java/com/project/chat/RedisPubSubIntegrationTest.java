@@ -49,6 +49,29 @@ public class RedisPubSubIntegrationTest {
                                 ((ChatMessageResponse) msg).getContent().equals(CONTENT)));
     }
 
+    @DisplayName("다른 방의 메시지는 전파되지 않는다")
+    @Test
+    void roomIsolation() {
+        final String ROOM_A = "A";
+        final String ROOM_B = "B";
+
+        ChatMessageSendRequest message = new ChatMessageSendRequest(ROOM_A, "USER_A", "Hello");
+
+        redisPublisher.publish(ROOM_A, message);
+
+        verify(messagingTemplate, timeout(5000).times(1))
+                .convertAndSend(
+                        (String) eq("/sub/chat/room/" + ROOM_A),
+                        (Object) any()
+                );
+
+        verify(messagingTemplate, never())
+                .convertAndSend(
+                        (String) eq("/sub/chat/room/" + ROOM_B),
+                        (Object) any()
+                );
+    }
+
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
