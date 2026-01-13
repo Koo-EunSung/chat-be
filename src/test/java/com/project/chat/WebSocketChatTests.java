@@ -95,6 +95,48 @@ public class WebSocketChatTests {
         }
     }
 
+    @DisplayName("같은 방의 모든 클라이언트가 메시지를 수신한다")
+    @Test
+    void broadcastInSameRoom() throws Exception {
+        String ROOM_ID = "1";
+        String USER = "user";
+        String CONTENT = "content";
+        String SUBSCRIBE = "/sub/chat/room/1";
+
+        // 클라이언트 생성 및 설정
+        WebSocketStompClient client1 = new WebSocketStompClient(new StandardWebSocketClient());
+        client1.setMessageConverter(messageConverter);
+
+        WebSocketStompClient client2 = new WebSocketStompClient(new StandardWebSocketClient());
+        client2.setMessageConverter(messageConverter);
+
+        // 서버에 연결
+        StompSession session1 = client1.connectAsync(url, new StompSessionHandlerAdapter() {
+        }).get(1, TimeUnit.SECONDS);
+        StompSession session2 = client2.connectAsync(url, new StompSessionHandlerAdapter() {
+        }).get(1, TimeUnit.SECONDS);
+
+        BlockingQueue<ChatMessageResponse> client1Queue = new LinkedBlockingQueue<>();
+        BlockingQueue<ChatMessageResponse> client2Queue = new LinkedBlockingQueue<>();
+
+        // 구독
+        session1.subscribe(SUBSCRIBE, new DefaultStompFrameHandler(new ChatMessageResponse(), client1Queue));
+        session2.subscribe(SUBSCRIBE, new DefaultStompFrameHandler(new ChatMessageResponse(), client2Queue));
+
+        // 발행
+        session1.send("/pub/chat/room/1", new ChatMessageSendRequest(ROOM_ID, USER, CONTENT));
+
+        // 응답 수신
+        ChatMessageResponse client1received = client1Queue.poll(3, TimeUnit.SECONDS);
+        ChatMessageResponse client2received = client2Queue.poll(3, TimeUnit.SECONDS);
+
+        // 검증
+        assertThat(client1received).isNotNull();
+        assertThat(client2received).isNotNull();
+
+        assertThat(client1received).usingRecursiveComparison().isEqualTo(client2received);
+    }
+
     @DisplayName("서로 다른 방의 구독자는 메시지를 받지 않는다")
     @Test
     void roomIsolation() throws Exception {
