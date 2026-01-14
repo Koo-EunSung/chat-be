@@ -51,6 +51,27 @@ public class WebSocketChatTests {
                      .get(1, TimeUnit.SECONDS);
     }
 
+    public class DefaultStompFrameHandler<T> implements StompFrameHandler {
+        private final Class<T> type;
+        private final BlockingQueue<T> responses;
+
+        public DefaultStompFrameHandler(final Class<T> type, final BlockingQueue<T> responses) {
+            this.type = type;
+            this.responses = responses;
+        }
+
+        @Override
+        public Type getPayloadType(final StompHeaders headers) {
+            return type;
+        }
+
+
+        @Override
+        public void handleFrame(final StompHeaders headers, final Object payload) {
+            responses.offer((T) payload);
+        }
+    }
+
     @BeforeEach
     void setUp() {
         url = "ws://localhost:" + port + "/ws-stomp/websocket"; // withSockJS() 사용 시 websocket 명시 필요
@@ -70,7 +91,7 @@ public class WebSocketChatTests {
         assertThat(session).isNotNull();
 
         // 3. 메시지 구독
-        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(new ChatMessageResponse(), blockingQueue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(ChatMessageResponse.class, blockingQueue));
 
         // 4. 메시지 발행
         ChatMessageSendRequest sentMessage = new ChatMessageSendRequest(ROOM_ID, "Test User1", "Hello, STOMP");
@@ -87,27 +108,6 @@ public class WebSocketChatTests {
         assertThat(response.getContent()).isEqualTo(sentMessage.getContent());
 
         session.disconnect();
-    }
-
-    public class DefaultStompFrameHandler<T> implements StompFrameHandler {
-        private final T response;
-        private final BlockingQueue<T> responses;
-
-        public DefaultStompFrameHandler(final T response, final BlockingQueue<T> responses) {
-            this.response = response;
-            this.responses = responses;
-        }
-
-        @Override
-        public Type getPayloadType(final StompHeaders headers) {
-            return response.getClass();
-        }
-
-
-        @Override
-        public void handleFrame(final StompHeaders headers, final Object payload) {
-            responses.offer((T) payload);
-        }
     }
 
     @DisplayName("같은 방의 모든 클라이언트가 메시지를 수신한다")
@@ -130,8 +130,8 @@ public class WebSocketChatTests {
         BlockingQueue<ChatMessageResponse> client2Queue = new LinkedBlockingQueue<>();
 
         // 구독
-        session1.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(new ChatMessageResponse(), client1Queue));
-        session2.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(new ChatMessageResponse(), client2Queue));
+        session1.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(ChatMessageResponse.class, client1Queue));
+        session2.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(ChatMessageResponse.class, client2Queue));
 
         // 발행
         session1.send(PUBLISH_PREFIX + ROOM_ID, new ChatMessageSendRequest(ROOM_ID, USER, CONTENT));
@@ -160,8 +160,8 @@ public class WebSocketChatTests {
         BlockingQueue<ChatMessageResponse> room1Queue = new LinkedBlockingQueue<>();
         BlockingQueue<ChatMessageResponse> room2Queue = new LinkedBlockingQueue<>();
 
-        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_1, new DefaultStompFrameHandler(new ChatMessageResponse(), room1Queue));
-        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_2, new DefaultStompFrameHandler(new ChatMessageResponse(), room2Queue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_1, new DefaultStompFrameHandler(ChatMessageResponse.class, room1Queue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_2, new DefaultStompFrameHandler(ChatMessageResponse.class, room2Queue));
 
         session.send(PUBLISH_PREFIX + ROOM_ID_1, new ChatMessageSendRequest(ROOM_ID_1, "user", "hello"));
 
