@@ -145,6 +145,9 @@ public class WebSocketChatTests {
         assertThat(client2received).isNotNull();
 
         assertThat(client1received).usingRecursiveComparison().isEqualTo(client2received);
+
+        session1.disconnect();
+        session2.disconnect();
     }
 
     @DisplayName("서로 다른 방의 구독자는 메시지를 받지 않는다")
@@ -167,5 +170,7 @@ public class WebSocketChatTests {
 
         assertThat(room1Queue.poll(3, TimeUnit.SECONDS)).isNotNull();
         assertThat(room2Queue.poll(1, TimeUnit.SECONDS)).isNull();
+
+        session.disconnect();
     }
 }
