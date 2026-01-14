@@ -7,6 +7,7 @@ import com.project.chat.event.ChatMessageEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -16,6 +17,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(TestRedisConfig.class)
@@ -36,17 +38,24 @@ public class RedisPubSubIntegrationTest {
         final String ROOM_ID = "1";
         final String USER = "user";
         final String CONTENT = "Test";
+
         ChatMessageSendRequest message = new ChatMessageSendRequest(ROOM_ID, USER, CONTENT);
+
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
 
         redisPublisher.publish(ROOM_ID, message);
 
         verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(
-                        (String) eq("/sub/chat/room/" + ROOM_ID),
-                        (Object) argThat(msg -> msg instanceof ChatMessageResponse &&
-                                ((ChatMessageResponse) msg).getRoomId().equals(ROOM_ID) &&
-                                ((ChatMessageResponse) msg).getSender().equals(USER) &&
-                                ((ChatMessageResponse) msg).getContent().equals(CONTENT)));
+                .convertAndSend(eq("/sub/chat/room/" + ROOM_ID), captor.capture());
+
+        ChatMessageResponse response = captor.getValue();
+
+        assertThat(response).isNotNull();
+        assertThat(response.getRoomId()).isEqualTo(ROOM_ID);
+        assertThat(response.getSender()).isEqualTo(USER);
+        assertThat(response.getContent()).isEqualTo(CONTENT);
+        assertThat(response.getId()).isNotBlank();
+        assertThat(response.getSentAt()).isNotNull();
     }
 
     @DisplayName("다른 방의 메시지는 전파되지 않는다")
@@ -86,17 +95,20 @@ public class RedisPubSubIntegrationTest {
 
         ChatMessageEvent messageEvent = new ChatMessageEvent(ID, ROOM_ID, USER, CONTENT, SENT_AT);
 
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
+
         redisTemplate.convertAndSend("chat/room/" + ROOM_ID, messageEvent);
 
         verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(
-                        (String) eq("/sub/chat/room/" + ROOM_ID),
-                        (Object) argThat(message -> message instanceof ChatMessageResponse &&
-                                ((ChatMessageResponse) message).getId().equals(ID) &&
-                                ((ChatMessageResponse) message).getSender().equals(USER) &&
-                                ((ChatMessageResponse) message).getContent().equals(CONTENT) &&
-                                ((ChatMessageResponse) message).getSentAt().equals(SENT_AT))
-                );
+                .convertAndSend(eq("/sub/chat/room/" + ROOM_ID), captor.capture());
+
+        ChatMessageResponse response = captor.getValue();
+
+        assertThat(response.getId()).isEqualTo(ID);
+        assertThat(response.getRoomId()).isEqualTo(ROOM_ID);
+        assertThat(response.getSender()).isEqualTo(USER);
+        assertThat(response.getContent()).isEqualTo(CONTENT);
+        assertThat(response.getSentAt()).isEqualTo(SENT_AT);
     }
 
     @DisplayName("서로 다른 방 메시지가 각각 올바른 목적지로 전파된다")
