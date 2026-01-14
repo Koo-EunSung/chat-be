@@ -85,6 +85,8 @@ public class RedisPubSubIntegrationTest {
                         (String) eq(STOMP_DESTINATION_PREFIX + ROOM_B),
                         (Object) any()
                 );
+
+        verifyNoMoreInteractions(messagingTemplate);
     }
 
     @DisplayName("Subscriber가 Redis 채널 메시지를 수신하면 WebSocket으로 전파한다.")
