@@ -25,6 +25,10 @@ import static org.mockito.Mockito.*;
 @Testcontainers
 public class RedisPubSubIntegrationTest {
 
+    private static final String STOMP_DESTINATION_PREFIX = "/sub/chat/room/";
+    private static final String REDIS_CHANNEL_PREFIX = "chat/room/";
+    private static final int VERIFY_TIMEOUT = 5000; // ms
+
     @Autowired
     private RedisPublisher redisPublisher;
 
@@ -47,8 +51,8 @@ public class RedisPubSubIntegrationTest {
 
         redisPublisher.publish(ROOM_ID, message);
 
-        verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(eq("/sub/chat/room/" + ROOM_ID), captor.capture());
+        verify(messagingTemplate, timeout(VERIFY_TIMEOUT).times(1))
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_ID), captor.capture());
 
         ChatMessageResponse response = captor.getValue();
 
@@ -70,15 +74,15 @@ public class RedisPubSubIntegrationTest {
 
         redisPublisher.publish(ROOM_A, message);
 
-        verify(messagingTemplate, timeout(5000).times(1))
+        verify(messagingTemplate, timeout(VERIFY_TIMEOUT).times(1))
                 .convertAndSend(
-                        (String) eq("/sub/chat/room/" + ROOM_A),
+                        (String) eq(STOMP_DESTINATION_PREFIX + ROOM_A),
                         (Object) any()
                 );
 
         verify(messagingTemplate, never())
                 .convertAndSend(
-                        (String) eq("/sub/chat/room/" + ROOM_B),
+                        (String) eq(STOMP_DESTINATION_PREFIX + ROOM_B),
                         (Object) any()
                 );
     }
@@ -96,10 +100,10 @@ public class RedisPubSubIntegrationTest {
 
         ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
 
-        redisTemplate.convertAndSend("chat/room/" + ROOM_ID, messageEvent);
+        redisTemplate.convertAndSend(REDIS_CHANNEL_PREFIX + ROOM_ID, messageEvent);
 
-        verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(eq("/sub/chat/room/" + ROOM_ID), captor.capture());
+        verify(messagingTemplate, timeout(VERIFY_TIMEOUT).times(1))
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_ID), captor.capture());
 
         ChatMessageResponse response = captor.getValue();
 
@@ -121,13 +125,13 @@ public class RedisPubSubIntegrationTest {
 
         verify(messagingTemplate, timeout(5000).times(1))
                 .convertAndSend(
-                        eq("/sub/chat/room/" + ROOM_A),
+                        eq(STOMP_DESTINATION_PREFIX + ROOM_A),
                         (Object) any()
                 );
 
         verify(messagingTemplate, timeout(5000).times(1))
                 .convertAndSend(
-                        eq("/sub/chat/room/" + ROOM_B),
+                        eq(STOMP_DESTINATION_PREFIX + ROOM_B),
                         (Object) any()
                 );
     }
