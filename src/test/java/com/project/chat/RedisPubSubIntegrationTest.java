@@ -122,19 +122,19 @@ public class RedisPubSubIntegrationTest {
         String ROOM_A = "A";
         String ROOM_B = "B";
 
+        ArgumentCaptor<ChatMessageResponse> captorA = ArgumentCaptor.forClass(ChatMessageResponse.class);
+        ArgumentCaptor<ChatMessageResponse> captorB = ArgumentCaptor.forClass(ChatMessageResponse.class);
+
         redisPublisher.publish(ROOM_A, new ChatMessageSendRequest(ROOM_A, "userA", "msg1"));
         redisPublisher.publish(ROOM_B, new ChatMessageSendRequest(ROOM_B, "userB", "msg2"));
 
         verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(
-                        eq(STOMP_DESTINATION_PREFIX + ROOM_A),
-                        (Object) any()
-                );
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_A), captorA.capture());
 
         verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(
-                        eq(STOMP_DESTINATION_PREFIX + ROOM_B),
-                        (Object) any()
-                );
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_B), captorB.capture());
+
+        assertThat(captorA.getValue().getRoomId()).isEqualTo(ROOM_A);
+        assertThat(captorB.getValue().getRoomId()).isEqualTo(ROOM_B);
     }
 }
