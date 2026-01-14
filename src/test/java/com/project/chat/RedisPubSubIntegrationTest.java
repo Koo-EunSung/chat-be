@@ -31,7 +31,7 @@ public class RedisPubSubIntegrationTest {
 
     @DisplayName("Redis로 메시지를 발행하면 Subscriber가 수신해서 STOMP로 전송한다.")
     @Test
-    void redisPubSub() throws Exception {
+    void whenPublish_thenBroadcastToSameRoom() throws Exception {
         final String ROOM_ID = "1";
         final String USER = "user";
         final String CONTENT = "Test";
@@ -57,7 +57,7 @@ public class RedisPubSubIntegrationTest {
 
     @DisplayName("다른 방의 메시지는 전파되지 않는다")
     @Test
-    void roomIsolation() {
+    void whenPublish_thenNoBroadcastToOtherRoom() {
         final String ROOM_A = "A";
         final String ROOM_B = "B";
 
@@ -82,7 +82,7 @@ public class RedisPubSubIntegrationTest {
 
     @DisplayName("서로 다른 방 메시지가 각각 올바른 목적지로 전파된다")
     @Test
-    void multiRoomMultiMessagePublish() {
+    void whenPublish_thenBroadcastToDestination() {
         String ROOM_A = "A";
         String ROOM_B = "B";
 

@@ -38,7 +38,7 @@ public class RedisSubscriberTest {
 
     @DisplayName("Subscriber는 Redis 메시지를 STOMP 메시지로 변환한다")
     @Test
-    void redisSub() {
+    void shouldConvertRedisMsgToStompMsg() {
         final String ID = TsidCreator.getTsid().toString();
         final String ROOM_ID = "1";
         final String USER = "User";
