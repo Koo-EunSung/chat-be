@@ -24,10 +24,12 @@ import static org.mockito.Mockito.*;
 @SpringBootTest
 @Testcontainers
 public class RedisPubSubIntegrationTest {
-    private static final int PORT = 6379;
 
     @Autowired
     private RedisPublisher redisPublisher;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @MockitoBean
     private SimpMessagingTemplate messagingTemplate;
@@ -80,9 +82,6 @@ public class RedisPubSubIntegrationTest {
                         (Object) any()
                 );
     }
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
 
     @DisplayName("Subscriber가 Redis 채널 메시지를 수신하면 WebSocket으로 전파한다.")
     @Test
