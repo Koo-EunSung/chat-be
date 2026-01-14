@@ -35,6 +35,9 @@ public class WebSocketChatTests {
     private String url;
     private BlockingQueue<ChatMessageResponse> blockingQueue;
 
+    private static final String SUBSCRIBE_PREFIX = "/sub/chat/room/";
+    private static final String PUBLISH_PREFIX = "/pub/chat/room/";
+
     @BeforeEach
     void setUp() {
         url = "ws://localhost:" + port + "/ws-stomp/websocket"; // withSockJS() 사용 시 websocket 명시 필요
@@ -44,6 +47,8 @@ public class WebSocketChatTests {
     @DisplayName("메시지를 보내면 서버에서 해당 메시지를 그대로 보낸다.")
     @Test
     void sendMessageAndReceiveEcho() throws Exception {
+        String ROOM_ID = "1";
+
         // 1. WebSocketStompClient 생성 및 설정
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
 
@@ -55,11 +60,11 @@ public class WebSocketChatTests {
         assertThat(session).isNotNull();
 
         // 3. 메시지 구독
-        session.subscribe("/sub/chat/room/1", new DefaultStompFrameHandler(new ChatMessageResponse(), blockingQueue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(new ChatMessageResponse(), blockingQueue));
 
         // 4. 메시지 발행
-        ChatMessageSendRequest sentMessage = new ChatMessageSendRequest("1", "Test User1", "Hello, STOMP");
-        session.send("/pub/chat/room/1", sentMessage);
+        ChatMessageSendRequest sentMessage = new ChatMessageSendRequest(ROOM_ID, "Test User1", "Hello, STOMP");
+        session.send(PUBLISH_PREFIX + ROOM_ID, sentMessage);
 
         // 5. 응답 수신
         ChatMessageResponse response = blockingQueue.poll(3, TimeUnit.SECONDS);
@@ -101,7 +106,6 @@ public class WebSocketChatTests {
         String ROOM_ID = "1";
         String USER = "user";
         String CONTENT = "content";
-        String SUBSCRIBE = "/sub/chat/room/1";
 
         // 클라이언트 생성 및 설정
         WebSocketStompClient client1 = new WebSocketStompClient(new StandardWebSocketClient());
@@ -120,11 +124,11 @@ public class WebSocketChatTests {
         BlockingQueue<ChatMessageResponse> client2Queue = new LinkedBlockingQueue<>();
 
         // 구독
-        session1.subscribe(SUBSCRIBE, new DefaultStompFrameHandler(new ChatMessageResponse(), client1Queue));
-        session2.subscribe(SUBSCRIBE, new DefaultStompFrameHandler(new ChatMessageResponse(), client2Queue));
+        session1.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(new ChatMessageResponse(), client1Queue));
+        session2.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(new ChatMessageResponse(), client2Queue));
 
         // 발행
-        session1.send("/pub/chat/room/1", new ChatMessageSendRequest(ROOM_ID, USER, CONTENT));
+        session1.send(PUBLISH_PREFIX + ROOM_ID, new ChatMessageSendRequest(ROOM_ID, USER, CONTENT));
 
         // 응답 수신
         ChatMessageResponse client1received = client1Queue.poll(3, TimeUnit.SECONDS);
@@ -140,6 +144,9 @@ public class WebSocketChatTests {
     @DisplayName("서로 다른 방의 구독자는 메시지를 받지 않는다")
     @Test
     void roomIsolation() throws Exception {
+        String ROOM_ID_1 = "1";
+        String ROOM_ID_2 = "2";
+
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
         stompClient.setMessageConverter(messageConverter);
 
@@ -149,10 +156,10 @@ public class WebSocketChatTests {
         BlockingQueue<ChatMessageResponse> room1Queue = new LinkedBlockingQueue<>();
         BlockingQueue<ChatMessageResponse> room2Queue = new LinkedBlockingQueue<>();
 
-        session.subscribe("/sub/chat/room/1", new DefaultStompFrameHandler(new ChatMessageResponse(), room1Queue));
-        session.subscribe("/sub/chat/room/2", new DefaultStompFrameHandler(new ChatMessageResponse(), room2Queue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_1, new DefaultStompFrameHandler(new ChatMessageResponse(), room1Queue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_2, new DefaultStompFrameHandler(new ChatMessageResponse(), room2Queue));
 
-        session.send("/pub/chat/room/1", new ChatMessageSendRequest("1", "user", "hello"));
+        session.send(PUBLISH_PREFIX + ROOM_ID_1, new ChatMessageSendRequest(ROOM_ID_1, "user", "hello"));
 
         assertThat(room1Queue.poll(3, TimeUnit.SECONDS)).isNotNull();
         assertThat(room2Queue.poll(1, TimeUnit.SECONDS)).isNull();
