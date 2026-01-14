@@ -38,6 +38,19 @@ public class WebSocketChatTests {
     private static final String SUBSCRIBE_PREFIX = "/sub/chat/room/";
     private static final String PUBLISH_PREFIX = "/pub/chat/room/";
 
+    private WebSocketStompClient createClient() {
+        WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
+        client.setMessageConverter(messageConverter);
+
+        return client;
+    }
+
+    private StompSession connect(WebSocketStompClient client) throws Exception {
+        return client.connectAsync(url, new StompSessionHandlerAdapter() {
+                     })
+                     .get(1, TimeUnit.SECONDS);
+    }
+
     @BeforeEach
     void setUp() {
         url = "ws://localhost:" + port + "/ws-stomp/websocket"; // withSockJS() 사용 시 websocket 명시 필요
@@ -50,13 +63,10 @@ public class WebSocketChatTests {
         String ROOM_ID = "1";
 
         // 1. WebSocketStompClient 생성 및 설정
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-
-        stompClient.setMessageConverter(messageConverter);
+        WebSocketStompClient stompClient = createClient();
 
         // 2. STOMP 서버에 연결
-        StompSession session = stompClient.connectAsync(url, new StompSessionHandlerAdapter() {
-        }).get(1, TimeUnit.SECONDS);
+        StompSession session = connect(stompClient);
         assertThat(session).isNotNull();
 
         // 3. 메시지 구독
@@ -108,17 +118,13 @@ public class WebSocketChatTests {
         String CONTENT = "content";
 
         // 클라이언트 생성 및 설정
-        WebSocketStompClient client1 = new WebSocketStompClient(new StandardWebSocketClient());
-        client1.setMessageConverter(messageConverter);
+        WebSocketStompClient client1 = createClient();
 
-        WebSocketStompClient client2 = new WebSocketStompClient(new StandardWebSocketClient());
-        client2.setMessageConverter(messageConverter);
+        WebSocketStompClient client2 = createClient();
 
         // 서버에 연결
-        StompSession session1 = client1.connectAsync(url, new StompSessionHandlerAdapter() {
-        }).get(1, TimeUnit.SECONDS);
-        StompSession session2 = client2.connectAsync(url, new StompSessionHandlerAdapter() {
-        }).get(1, TimeUnit.SECONDS);
+        StompSession session1 = connect(client1);
+        StompSession session2 = connect(client2);
 
         BlockingQueue<ChatMessageResponse> client1Queue = new LinkedBlockingQueue<>();
         BlockingQueue<ChatMessageResponse> client2Queue = new LinkedBlockingQueue<>();
@@ -147,11 +153,9 @@ public class WebSocketChatTests {
         String ROOM_ID_1 = "1";
         String ROOM_ID_2 = "2";
 
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(messageConverter);
+        WebSocketStompClient stompClient = createClient();
 
-        StompSession session = stompClient.connectAsync(url, new StompSessionHandlerAdapter() {
-        }).get(1, TimeUnit.SECONDS);
+        StompSession session = connect(stompClient);
 
         BlockingQueue<ChatMessageResponse> room1Queue = new LinkedBlockingQueue<>();
         BlockingQueue<ChatMessageResponse> room2Queue = new LinkedBlockingQueue<>();
