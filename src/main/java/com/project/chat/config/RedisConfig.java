@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.project.chat.RedisSubscriber;
-import com.project.chat.event.ChatMessageEvent;
+import com.project.chat.dto.ChatMessagePayload;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -43,7 +43,7 @@ public class RedisConfig {
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        adapter.setSerializer(new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessageEvent.class)); // redisTemplate과 동일한 serializer 사용
+        adapter.setSerializer(new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessagePayload.class)); // redisTemplate과 동일한 serializer 사용
         return adapter;
     }
 
@@ -60,7 +60,7 @@ public class RedisConfig {
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        Jackson2JsonRedisSerializer<ChatMessageEvent> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessageEvent.class);
+        Jackson2JsonRedisSerializer<ChatMessagePayload> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessagePayload.class);
         redisTemplate.setValueSerializer(serializer);
         return redisTemplate;
     }

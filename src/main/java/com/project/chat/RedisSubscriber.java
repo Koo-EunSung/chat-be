@@ -1,7 +1,7 @@
 package com.project.chat;
 
+import com.project.chat.dto.ChatMessagePayload;
 import com.project.chat.dto.ChatMessageResponse;
-import com.project.chat.event.ChatMessageEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 public class RedisSubscriber {
     private final SimpMessageSendingOperations messagingTemplate;
 
-    public void onMessage(ChatMessageEvent event) {
+    public void onMessage(ChatMessagePayload event) {
         try {
             ChatMessageResponse response = new ChatMessageResponse(
                     event.getId(),

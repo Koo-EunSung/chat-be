@@ -1,8 +1,8 @@
 package com.project.chat;
 
 import com.github.f4b6a3.tsid.TsidCreator;
+import com.project.chat.dto.ChatMessagePayload;
 import com.project.chat.dto.ChatMessageResponse;
-import com.project.chat.event.ChatMessageEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +45,7 @@ public class RedisSubscriberTest {
         final String CONTENT = "Hello";
         final Instant SENT_AT = Instant.now();
 
-        ChatMessageEvent messageEvent = new ChatMessageEvent(ID, ROOM_ID, USER, CONTENT, SENT_AT);
+        ChatMessagePayload messageEvent = new ChatMessagePayload(ID, ROOM_ID, USER, CONTENT, SENT_AT);
 
         ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
 
