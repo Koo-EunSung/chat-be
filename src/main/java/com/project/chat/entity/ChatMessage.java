@@ -1,5 +1,6 @@
 package com.project.chat.entity;
 
+import com.project.chat.dto.ChatMessagePayload;
 import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,4 +22,14 @@ public class ChatMessage {
     private String content;
 
     private Instant sentAt;
+
+    public static ChatMessage from(ChatMessagePayload payload) {
+        return new ChatMessage(
+                payload.getId(),
+                payload.getRoomId(),
+                payload.getSender(),
+                payload.getContent(),
+                payload.getSentAt()
+        );
+    }
 }
