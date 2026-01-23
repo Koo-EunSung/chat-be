@@ -15,12 +15,6 @@ public class ChatMessageService {
 
     @Async
     public void saveAsync(ChatMessagePayload payload) {
-        repository.insert(new ChatMessage(
-                payload.getId(),
-                payload.getRoomId(),
-                payload.getSender(),
-                payload.getContent(),
-                payload.getSentAt())
-        );
+        repository.insert(ChatMessage.from(payload));
     }
 }
