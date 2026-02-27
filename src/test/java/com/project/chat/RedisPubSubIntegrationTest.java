@@ -1,79 +1,104 @@
 package com.project.chat;
 
-import com.project.chat.dto.ChatMessageDTO;
+import com.project.chat.dto.ChatMessageResponse;
+import com.project.chat.dto.ChatMessageSendRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.listener.ChannelTopic;
-import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import tools.jackson.databind.ObjectMapper;
 
-
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(TestRedisConfig.class)
 @SpringBootTest
 @Testcontainers
 public class RedisPubSubIntegrationTest {
-    private static final int PORT = 6379;
+
+    private static final String STOMP_DESTINATION_PREFIX = "/sub/chat/room/";
+    private static final int VERIFY_TIMEOUT = 5000; // ms
 
     @Autowired
     private RedisPublisher redisPublisher;
 
-    @Autowired
-    private ChannelTopic channelTopic;
-
     @MockitoBean
     private SimpMessagingTemplate messagingTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @DisplayName("Redis로 메시지를 발행하면 Subscriber가 수신해서 STOMP로 전송한다.")
     @Test
-    void redisPubSub() throws Exception {
+    void whenPublish_thenBroadcastToSameRoom() throws Exception {
+        final String ROOM_ID = "1";
         final String USER = "user";
         final String CONTENT = "Test";
-        ChatMessageDTO message = new ChatMessageDTO(USER, CONTENT);
 
-        redisPublisher.publish(channelTopic, message);
+        ChatMessageSendRequest message = new ChatMessageSendRequest(ROOM_ID, USER, CONTENT);
 
-        verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(
-                        (String) eq("/topic/chat"),
-                        (Object) argThat(msg -> msg instanceof ChatMessageDTO &&
-                                ((ChatMessageDTO) msg).getSender().equals(USER) &&
-                                ((ChatMessageDTO) msg).getContent().equals(CONTENT)));
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
+
+        redisPublisher.publish(ROOM_ID, message);
+
+        verify(messagingTemplate, timeout(VERIFY_TIMEOUT).times(1))
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_ID), captor.capture());
+
+        ChatMessageResponse response = captor.getValue();
+
+        assertThat(response).isNotNull();
+        assertThat(response.getRoomId()).isEqualTo(ROOM_ID);
+        assertThat(response.getSender()).isEqualTo(USER);
+        assertThat(response.getContent()).isEqualTo(CONTENT);
+        assertThat(response.getId()).isNotBlank();
+        assertThat(response.getSentAt()).isNotNull();
     }
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @DisplayName("Subscriber가 Redis 채널 메시지를 수신하면 WebSocket으로 전파한다.")
+    @DisplayName("다른 방의 메시지는 전파되지 않는다")
     @Test
-    void redisSub() {
-        String user = "User";
-        String content = "Hello";
-        ChatMessageDTO messageDTO = new ChatMessageDTO(user, content);
+    void whenPublish_thenNoBroadcastToOtherRoom() {
+        final String ROOM_A = "A";
+        final String ROOM_B = "B";
 
-        redisTemplate.convertAndSend(channelTopic.getTopic(), messageDTO);
+        ChatMessageSendRequest message = new ChatMessageSendRequest(ROOM_A, "USER_A", "Hello");
+
+        redisPublisher.publish(ROOM_A, message);
+
+        verify(messagingTemplate, timeout(VERIFY_TIMEOUT).times(1))
+                .convertAndSend(
+                        (String) eq(STOMP_DESTINATION_PREFIX + ROOM_A),
+                        (Object) any()
+                );
+
+        verify(messagingTemplate, never())
+                .convertAndSend(
+                        (String) eq(STOMP_DESTINATION_PREFIX + ROOM_B),
+                        (Object) any()
+                );
+
+        verifyNoMoreInteractions(messagingTemplate);
+    }
+
+    @DisplayName("서로 다른 방 메시지가 각각 올바른 목적지로 전파된다")
+    @Test
+    void whenPublish_thenBroadcastToDestination() {
+        String ROOM_A = "A";
+        String ROOM_B = "B";
+
+        ArgumentCaptor<ChatMessageResponse> captorA = ArgumentCaptor.forClass(ChatMessageResponse.class);
+        ArgumentCaptor<ChatMessageResponse> captorB = ArgumentCaptor.forClass(ChatMessageResponse.class);
+
+        redisPublisher.publish(ROOM_A, new ChatMessageSendRequest(ROOM_A, "userA", "msg1"));
+        redisPublisher.publish(ROOM_B, new ChatMessageSendRequest(ROOM_B, "userB", "msg2"));
 
         verify(messagingTemplate, timeout(5000).times(1))
-                .convertAndSend(
-                        (String) eq("/topic/chat"),
-                        (Object) argThat(message -> message instanceof ChatMessageDTO &&
-                                ((ChatMessageDTO) message).getSender().equals(user) &&
-                                ((ChatMessageDTO) message).getContent().equals(content)));
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_A), captorA.capture());
+
+        verify(messagingTemplate, timeout(5000).times(1))
+                .convertAndSend(eq(STOMP_DESTINATION_PREFIX + ROOM_B), captorB.capture());
+
+        assertThat(captorA.getValue().getRoomId()).isEqualTo(ROOM_A);
+        assertThat(captorB.getValue().getRoomId()).isEqualTo(ROOM_B);
     }
 }

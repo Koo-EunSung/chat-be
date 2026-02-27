@@ -1,21 +1,26 @@
 package com.project.chat;
 
-import com.project.chat.dto.ChatMessageDTO;
+import com.project.chat.dto.ChatMessagePayload;
+import com.project.chat.dto.ChatMessageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
 public class RedisSubscriber {
-    private final ObjectMapper objectMapper;
     private final SimpMessageSendingOperations messagingTemplate;
 
-    public void onMessage(String publishMessage) {
+    public void onMessage(ChatMessagePayload event) {
         try {
-            ChatMessageDTO chatMessageDTO = objectMapper.readValue(publishMessage, ChatMessageDTO.class);
-            messagingTemplate.convertAndSend("/topic/chat", chatMessageDTO);
+            ChatMessageResponse response = new ChatMessageResponse(
+                    event.getId(),
+                    event.getRoomId(),
+                    event.getSender(),
+                    event.getContent(),
+                    event.getSentAt()
+            );
+            messagingTemplate.convertAndSend("/sub/chat/room/" + event.getRoomId(), response);
         } catch (Exception e) {
             System.out.println("Exception: " + e.getMessage());
         }

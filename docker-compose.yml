@@ -1,0 +1,17 @@
+# 로컬 개발용
+services:
+  redis:
+    image: redis:8.4.0
+    ports:
+      - "6379:6379"
+    networks:
+      - chat_be
+  mongoDB:
+    image: mongo:8.2.4
+    ports:
+      - "27017:27017"
+    networks:
+      - chat_be
+networks:
+  chat_be:
+

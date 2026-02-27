@@ -1,6 +1,7 @@
 package com.project.chat;
 
-import com.project.chat.dto.ChatMessageDTO;
+import com.project.chat.dto.ChatMessageResponse;
+import com.project.chat.dto.ChatMessageSendRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -32,7 +33,44 @@ public class WebSocketChatTests {
     private MessageConverter messageConverter; // Spring 컨텍스트에서 MessageConverter를 주입받음
 
     private String url;
-    private BlockingQueue<ChatMessageDTO> blockingQueue;
+    private BlockingQueue<ChatMessageResponse> blockingQueue;
+
+    private static final String SUBSCRIBE_PREFIX = "/sub/chat/room/";
+    private static final String PUBLISH_PREFIX = "/pub/chat/room/";
+
+    private WebSocketStompClient createClient() {
+        WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
+        client.setMessageConverter(messageConverter);
+
+        return client;
+    }
+
+    private StompSession connect(WebSocketStompClient client) throws Exception {
+        return client.connectAsync(url, new StompSessionHandlerAdapter() {
+                     })
+                     .get(1, TimeUnit.SECONDS);
+    }
+
+    public class DefaultStompFrameHandler<T> implements StompFrameHandler {
+        private final Class<T> type;
+        private final BlockingQueue<T> responses;
+
+        public DefaultStompFrameHandler(final Class<T> type, final BlockingQueue<T> responses) {
+            this.type = type;
+            this.responses = responses;
+        }
+
+        @Override
+        public Type getPayloadType(final StompHeaders headers) {
+            return type;
+        }
+
+
+        @Override
+        public void handleFrame(final StompHeaders headers, final Object payload) {
+            responses.offer((T) payload);
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -43,49 +81,96 @@ public class WebSocketChatTests {
     @DisplayName("메시지를 보내면 서버에서 해당 메시지를 그대로 보낸다.")
     @Test
     void sendMessageAndReceiveEcho() throws Exception {
-        // 1. WebSocketStompClient 생성 및 설정
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        String ROOM_ID = "1";
 
-        stompClient.setMessageConverter(messageConverter);
+        // 1. WebSocketStompClient 생성 및 설정
+        WebSocketStompClient stompClient = createClient();
 
         // 2. STOMP 서버에 연결
-        StompSession session = stompClient.connectAsync(url, new StompSessionHandlerAdapter() {}).get(1, TimeUnit.SECONDS);
+        StompSession session = connect(stompClient);
         assertThat(session).isNotNull();
 
         // 3. 메시지 구독
-        session.subscribe("/topic/chat", new DefaultStompFrameHandler(new ChatMessageDTO(), blockingQueue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(ChatMessageResponse.class, blockingQueue));
 
         // 4. 메시지 발행
-        ChatMessageDTO sentMessage = new ChatMessageDTO("Test User1", "Hello, STOMP");
-        session.send("/app/send", sentMessage);
+        ChatMessageSendRequest sentMessage = new ChatMessageSendRequest(ROOM_ID, "Test User1", "Hello, STOMP");
+        session.send(PUBLISH_PREFIX + ROOM_ID, sentMessage);
 
         // 5. 응답 수신
-        ChatMessageDTO response = blockingQueue.poll(3, TimeUnit.SECONDS);
+        ChatMessageResponse response = blockingQueue.poll(3, TimeUnit.SECONDS);
 
         // 6. 검증
-        assertThat(response).usingRecursiveComparison().isEqualTo(sentMessage);
+        // assertThat(response).usingRecursiveComparison().isEqualTo(sentMessage);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getSender()).isEqualTo(sentMessage.getSender());
+        assertThat(response.getContent()).isEqualTo(sentMessage.getContent());
 
         session.disconnect();
     }
 
-    public class DefaultStompFrameHandler<T> implements StompFrameHandler {
-        private final T response;
-        private final BlockingQueue<T> responses;
+    @DisplayName("같은 방의 모든 클라이언트가 메시지를 수신한다")
+    @Test
+    void broadcastInSameRoom() throws Exception {
+        String ROOM_ID = "1";
+        String USER = "user";
+        String CONTENT = "content";
 
-        public DefaultStompFrameHandler(final T response, final BlockingQueue<T> responses) {
-            this.response = response;
-            this.responses = responses;
-        }
+        // 클라이언트 생성 및 설정
+        WebSocketStompClient client1 = createClient();
 
-        @Override
-        public Type getPayloadType(final StompHeaders headers) {
-            return response.getClass();
-        }
+        WebSocketStompClient client2 = createClient();
 
+        // 서버에 연결
+        StompSession session1 = connect(client1);
+        StompSession session2 = connect(client2);
 
-        @Override
-        public void handleFrame(final StompHeaders headers, final Object payload) {
-            responses.offer((T) payload);
-        }
+        BlockingQueue<ChatMessageResponse> client1Queue = new LinkedBlockingQueue<>();
+        BlockingQueue<ChatMessageResponse> client2Queue = new LinkedBlockingQueue<>();
+
+        // 구독
+        session1.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(ChatMessageResponse.class, client1Queue));
+        session2.subscribe(SUBSCRIBE_PREFIX + ROOM_ID, new DefaultStompFrameHandler(ChatMessageResponse.class, client2Queue));
+
+        // 발행
+        session1.send(PUBLISH_PREFIX + ROOM_ID, new ChatMessageSendRequest(ROOM_ID, USER, CONTENT));
+
+        // 응답 수신
+        ChatMessageResponse client1received = client1Queue.poll(3, TimeUnit.SECONDS);
+        ChatMessageResponse client2received = client2Queue.poll(3, TimeUnit.SECONDS);
+
+        // 검증
+        assertThat(client1received).isNotNull();
+        assertThat(client2received).isNotNull();
+
+        assertThat(client1received).usingRecursiveComparison().isEqualTo(client2received);
+
+        session1.disconnect();
+        session2.disconnect();
+    }
+
+    @DisplayName("서로 다른 방의 구독자는 메시지를 받지 않는다")
+    @Test
+    void roomIsolation() throws Exception {
+        String ROOM_ID_1 = "1";
+        String ROOM_ID_2 = "2";
+
+        WebSocketStompClient stompClient = createClient();
+
+        StompSession session = connect(stompClient);
+
+        BlockingQueue<ChatMessageResponse> room1Queue = new LinkedBlockingQueue<>();
+        BlockingQueue<ChatMessageResponse> room2Queue = new LinkedBlockingQueue<>();
+
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_1, new DefaultStompFrameHandler(ChatMessageResponse.class, room1Queue));
+        session.subscribe(SUBSCRIBE_PREFIX + ROOM_ID_2, new DefaultStompFrameHandler(ChatMessageResponse.class, room2Queue));
+
+        session.send(PUBLISH_PREFIX + ROOM_ID_1, new ChatMessageSendRequest(ROOM_ID_1, "user", "hello"));
+
+        assertThat(room1Queue.poll(3, TimeUnit.SECONDS)).isNotNull();
+        assertThat(room2Queue.poll(1, TimeUnit.SECONDS)).isNull();
+
+        session.disconnect();
     }
 }

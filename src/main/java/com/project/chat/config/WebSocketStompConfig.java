@@ -18,8 +18,10 @@ public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic"); // 구독하는 주소의 프리픽스
+        // 메시지 구독 요청의 prefix -> /sub로 시작하는 destination을 구독
+        registry.enableSimpleBroker("/sub");
 
-        registry.setApplicationDestinationPrefixes("/app"); // 메시지를 발행하는 주소의 프리픽스
+        // 메시지 발행 요청의 prefix -> /pub로 시작하는 destination으로 메시지 전송
+        registry.setApplicationDestinationPrefixes("/pub");
     }
 }

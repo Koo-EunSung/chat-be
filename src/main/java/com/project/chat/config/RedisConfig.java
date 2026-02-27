@@ -1,51 +1,67 @@
 package com.project.chat.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.project.chat.RedisSubscriber;
-import com.project.chat.dto.ChatMessageDTO;
+import com.project.chat.dto.ChatMessagePayload;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
-import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class RedisConfig {
 
-    // 1. Redis 메시지 리스너 컨테이너 생성
+    /**
+     * redis pub/sub 메시지 처리하는 listener 설정
+     */
     @Bean
     public RedisMessageListenerContainer redisMessageListenerContainer(RedisConnectionFactory connectionFactory,
-                                                                       MessageListenerAdapter messageListenerAdapter,
-                                                                       ChannelTopic channelTopic) {
+                                                                       MessageListenerAdapter listenerAdapter) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
 
-        container.addMessageListener(messageListenerAdapter, channelTopic);
-
+        container.addMessageListener(listenerAdapter, new PatternTopic("chat/room/*"));
         return container;
     }
 
+    /**
+     * 실제 메시지를 처리하는 subscriber 설정
+     */
     @Bean
     public MessageListenerAdapter listenerAdapter(RedisSubscriber subscriber) {
-        return new MessageListenerAdapter(subscriber, "onMessage");
+        // onMessage 라는 메소드를 가진 RedisSubscriber를 리스너로 등록
+        MessageListenerAdapter adapter = new MessageListenerAdapter(subscriber, "onMessage");
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        adapter.setSerializer(new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessagePayload.class)); // redisTemplate과 동일한 serializer 사용
+        return adapter;
     }
 
+    /**
+     * 어플리케이션에서 사용할 redisTemplate 설정
+     */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(connectionFactory);
-
         redisTemplate.setKeySerializer(new StringRedisSerializer());
-        redisTemplate.setValueSerializer(new JacksonJsonRedisSerializer<>(String.class));
 
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        Jackson2JsonRedisSerializer<ChatMessagePayload> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, ChatMessagePayload.class);
+        redisTemplate.setValueSerializer(serializer);
         return redisTemplate;
-    }
-
-    @Bean
-    public ChannelTopic channelTopic() {
-        return new ChannelTopic("chat");
     }
 }
