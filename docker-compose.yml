@@ -4,12 +4,22 @@ services:
     image: redis:8.4.0
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     networks:
       - chat_be
   mongoDB:
     image: mongo:8.2.4
     ports:
       - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
     networks:
       - chat_be
 networks:
