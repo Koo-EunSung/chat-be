@@ -25,3 +25,7 @@ services:
 networks:
   chat_be:
 
+volumes:
+  redis_data:
+  mongo_data:
+
