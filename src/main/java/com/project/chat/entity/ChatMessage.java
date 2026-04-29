@@ -1,7 +1,7 @@
 package com.project.chat.entity;
 
 import com.project.chat.dto.ChatMessagePayload;
-import jakarta.persistence.Id;
+import org.springframework.data.annotation.Id;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.data.mongodb.core.mapping.Document;
